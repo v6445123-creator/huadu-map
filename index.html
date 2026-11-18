@@ -71,6 +71,19 @@
   .ts-k { font-size:10px; color:#969cab; white-space:nowrap; }
   .ts-v { font-size:13px; font-weight:700; color:#24243c; margin-top:2px; white-space:nowrap; }
 
+  /* ---- 最新月成交一览表 ---- */
+  .mtable { width:100%; border-collapse:separate; border-spacing:0; margin-top:2px; font-size:12px; }
+  .mtable th { background:#eef2fa; color:#4a5568; font-weight:600; padding:7px 8px; text-align:center; white-space:nowrap; }
+  .mtable th:first-child { border-radius:8px 0 0 0; text-align:left; padding-left:10px; }
+  .mtable th:last-child { border-radius:0 8px 0 0; }
+  .mtable td { padding:4px 8px; text-align:center; border-bottom:1px solid #f1f3f8; color:#333; }
+  .mtable td.pname { text-align:left; padding-left:10px; font-weight:600; color:#24243c; }
+  .mtable tr:last-child td { border-bottom:none; }
+  .mtable tbody tr:hover td { background:#f8faff; }
+  .up { color:#e0564f; font-weight:700; }
+  .down { color:#3aa383; font-weight:700; }
+  .flat { color:#98a0ad; }
+
   /* ---- 本项目波纹标记 ---- */
   .self-dot { display:flex; flex-direction:column; align-items:center; cursor:pointer; }
   .self-label { font-size:11px; font-weight:700; color:#fff; background:linear-gradient(135deg,#ef8b2f,#e0564f);
@@ -339,25 +352,32 @@ function renderChartBlock(el, months, vols, prices, totals, volMax) {
 
 /* 整体统计面板:未点击项目时的首页视图 */
 function renderOverall() {
-  const acc = M_RANGE.map(() => ({ vol: 0, pw: 0, tw: 0 }));
-  DATA.projects.forEach(p => p.月度走势.forEach(d => {
-    const i = M_RANGE.indexOf(d.month);
-    if (i < 0) return;
-    acc[i].vol += d.成交量;
-    acc[i].pw += d.成交均价 * d.成交量;
-    acc[i].tw += d.套均总价 * d.成交量;
-  }));
-  const months = M_RANGE.map(k => k.slice(5) + '月');
-  const vols = acc.map(a => a.vol);
-  const prices = acc.map(a => a.vol ? Math.round(a.pw / a.vol) : null);
-  const totals = acc.map(a => a.vol ? Math.round(a.tw / a.vol) : null);
-  const totalVol = vols.reduce((s, v) => s + v, 0);
-  const activeM = vols.filter(v => v > 0).length;
-  const ps = prices.filter(v => v != null), tss = totals.filter(v => v != null);
-  const priceRange = ps.length ? Math.min(...ps) + ' ~ ' + Math.max(...ps) : '—';
-  const totalRange = tss.length ? Math.min(...tss) + ' ~ ' + Math.max(...tss) : '—';
+  if (chart) { chart.dispose(); chart = null; }
   const covered = DATA.projects.filter(p => p.在售挂牌量 != null).length;
   const listingSum = DATA.projects.reduce((s, p) => s + (p.在售挂牌量 || 0), 0);
+
+  /* 各项目最新有成交月份的套数/均价/环比 */
+  const rows = DATA.projects.map(p => {
+    const wd = p.月度走势;
+    const cur = wd[wd.length - 1], prev = wd.length > 1 ? wd[wd.length - 2] : null;
+    let huanbi = '<span class="flat">—</span>';
+    if (cur && prev && prev.成交均价) {
+      const chg = (cur.成交均价 - prev.成交均价) / prev.成交均价 * 100;
+      if (chg > 0.05) huanbi = '<span class="up">↑' + chg.toFixed(1) + '%</span>';
+      else if (chg < -0.05) huanbi = '<span class="down">↓' + Math.abs(chg).toFixed(1) + '%</span>';
+      else huanbi = '<span class="flat">0.0%</span>';
+    }
+    return { p, cur, huanbi };
+  }).sort((a, b) => (b.cur ? b.cur.成交量 : -1) - (a.cur ? a.cur.成交量 : -1));
+
+  const trs = rows.map(r =>
+    '<tr>' +
+    '<td class="pname">' + r.p.name + '</td>' +
+    '<td>' + (r.cur ? r.cur.month.slice(5) + '月' : '—') + '</td>' +
+    '<td>' + (r.cur ? r.cur.成交量 : '—') + '</td>' +
+    '<td>' + (r.cur ? r.cur.成交均价 : '—') + '</td>' +
+    '<td>' + r.huanbi + '</td>' +
+    '</tr>').join('');
 
   scroll.innerHTML =
     '<div class="card-head"><div class="card-title">整体统计' +
@@ -366,24 +386,15 @@ function renderOverall() {
     '<div class="listing-tile"><span class="lt-label">在售挂牌量(120-150万)</span>' +
       '<span class="lt-val">' + listingSum +
       '<span class="lt-sub">套 · ' + covered + '/' + DATA.projects.length + '个小区有数据</span></span></div>' +
-    '<div class="mod-title">月度量价走势(全部汇总)<span class="sec-sub">2026年1月起逐月 · 均价总价按成交量加权</span></div>' +
-    '<div class="trend-stats">' +
-    '<div class="ts-item"><div class="ts-k">累计成交</div><div class="ts-v">' + totalVol + ' 套</div></div>' +
-    '<div class="ts-item"><div class="ts-k">有成交月份</div><div class="ts-v">' + activeM + ' / ' + M_RANGE.length + ' 月</div></div>' +
-    '<div class="ts-item"><div class="ts-k">均价区间(元/㎡)</div><div class="ts-v">' + priceRange + '</div></div>' +
-    '<div class="ts-item"><div class="ts-k">总价区间(万元)</div><div class="ts-v">' + totalRange + '</div></div>' +
-    '</div>' +
-    '<div id="chart"></div>' +
+    '<div class="mod-title">最新月成交一览<span class="sec-sub">各项目最新成交月份 · 环比=较上一成交月均价 · 按套数排序</span></div>' +
+    '<table class="mtable">' +
+    '<thead><tr><th>楼盘</th><th>月份</th><th>成交套数</th><th>成交均价(元/㎡)</th><th>均价环比</th></tr></thead>' +
+    '<tbody>' + trs + '</tbody></table>' +
     '<div class="card-foot">点击地图上的小区标记可查看单盘详情 · 数据来源:监测表</div>';
 
   card.classList.add('show');
   const oc = card.querySelector('.overall-close');
   if (oc) oc.onclick = () => card.classList.remove('show');
-  setTimeout(() => {
-    const el = document.getElementById('chart');
-    if (!el) return;
-    renderChartBlock(el, months, vols, prices, totals);
-  }, 60);
 }
 
 function closeCard() { renderOverall(); }
