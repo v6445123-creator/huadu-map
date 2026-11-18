@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>华都项目 · 二手监测地图</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html,body,#map { width:100%; height:100%; }
+  body { font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; overflow:hidden; }
+
+  /* ---- 左上信息面板 ---- */
+  .panel { position:fixed; top:16px; left:16px; z-index:200; background:#fff; border-radius:12px;
+           box-shadow:0 4px 20px rgba(0,0,0,.12); padding:14px 16px 12px; width:264px; }
+  .panel h1 { font-size:17px; color:#1a1a2e; letter-spacing:.5px; }
+  .panel h1 em { font-style:normal; color:#3f6fd8; }
+  .panel .sub { font-size:11px; color:#888; margin-top:4px; line-height:1.5; }
+  .chips { display:flex; flex-wrap:wrap; gap:5px; margin-top:10px; }
+  .chip { font-size:11px; padding:3px 9px; border-radius:20px; cursor:pointer; border:1px solid transparent;
+          color:#fff; user-select:none; transition:opacity .15s, transform .15s; }
+  .chip:hover { transform:translateY(-1px); }
+  .chip.off { opacity:.25; filter:grayscale(.6); }
+  .chip.all { background:#4a4a68 !important; }
+  .panel .note { font-size:10px; color:#aaa; margin-top:10px; line-height:1.6; border-top:1px dashed #eee; padding-top:8px; }
+
+  /* ---- 自定义标记 ---- */
+  .mk { display:flex; flex-direction:column; align-items:center; cursor:pointer; }
+  .mk-label { font-size:11px; line-height:1; padding:4px 7px; border-radius:4px; color:#fff; white-space:nowrap;
+              background:var(--c); box-shadow:0 1px 4px rgba(0,0,0,.25); margin-bottom:3px; font-weight:600; }
+  .mk-dot { width:11px; height:11px; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 5px rgba(0,0,0,.35);
+            transition:transform .12s; }
+  .mk:hover .mk-dot { transform:scale(1.7); }
+  .mk:hover .mk-label { filter:brightness(1.12); }
+
+  /* ---- 右侧详情卡 ---- */
+  .card { position:fixed; top:16px; right:16px; bottom:16px; width:682px; z-index:300;
+          background:#fff; border-radius:14px; box-shadow:0 8px 32px rgba(0,0,0,.18);
+          transform:translateX(720px); opacity:0; transition:transform .28s cubic-bezier(.2,.8,.25,1), opacity .2s;
+          display:flex; flex-direction:column; overflow:hidden; }
+  .card.show { transform:translateX(0); opacity:1; }
+  .card-scroll { padding:12px 18px 10px; flex:1; overflow:hidden; }
+
+  .card-head { display:flex; align-items:flex-start; gap:8px; }
+  .card-title { font-size:18px; font-weight:700; color:#1a1a2e; line-height:1.35; flex:1; }
+  .bk-tag { display:inline-block; font-size:11px; font-weight:600; color:#fff; padding:2px 8px;
+            border-radius:4px; vertical-align:2px; margin-left:6px; }
+  .card-close { border:none; background:#f2f3f7; color:#888; width:24px; height:24px; border-radius:50%;
+                font-size:14px; cursor:pointer; line-height:1; flex:none; }
+  .card-close:hover { background:#e2e4ea; color:#333; }
+
+  .tiles { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px; }
+  .tile { background:#f7f8fb; border-radius:8px; padding:8px 10px; }
+  .t-label { font-size:10px; color:#96a; color:#969cab; }
+  .t-val { font-size:16px; font-weight:700; color:#24243c; margin-top:2px; }
+  .t-sub { font-size:10px; font-weight:400; color:#999; }
+  .listing-tile { background:#fff4e8; border:1px solid #ffd9b3; border-radius:8px; padding:10px 14px;
+                  margin-top:12px; display:flex; align-items:center; justify-content:space-between; }
+  .lt-label { font-size:13px; color:#a8683a; font-weight:600; }
+  .lt-val { font-size:28px; font-weight:800; color:#ef8b2f; line-height:1; }
+  .lt-sub { font-size:11px; font-weight:400; color:#c99a6a; margin-left:4px; }
+
+  /* ---- 模块区隔与图标 ---- */
+  .mod-title { display:flex; align-items:center; gap:10px; margin:12px 0 6px;
+               font-size:13px; font-weight:700; color:#1a1a2e; }
+  .mod-title::after { content:''; flex:1; height:1px; background:#e8eaf1; }
+  .mod-title .sec-sub { font-weight:400; color:#999; font-size:10px; white-space:nowrap; }
+  .ik { display:inline-block; width:15px; height:15px; margin-right:6px; vertical-align:-3px; color:#8a93a6; }
+  .ik svg { width:100%; height:100%; display:block; }
+  .trend-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:6px; margin:6px 0 2px; }
+  .ts-item { background:#f7f8fb; border-radius:6px; padding:5px 9px; }
+  .ts-k { font-size:10px; color:#969cab; white-space:nowrap; }
+  .ts-v { font-size:13px; font-weight:700; color:#24243c; margin-top:2px; white-space:nowrap; }
+
+  /* ---- 本项目波纹标记 ---- */
+  .self-dot { display:flex; flex-direction:column; align-items:center; cursor:pointer; }
+  .self-label { font-size:11px; font-weight:700; color:#fff; background:linear-gradient(135deg,#ef8b2f,#e0564f);
+                padding:4px 9px; border-radius:4px; margin-bottom:4px; white-space:nowrap;
+                box-shadow:0 1px 4px rgba(0,0,0,.25); }
+  .self-body { position:relative; width:18px; height:18px; }
+  .self-body .ring { position:absolute; inset:-3px; border-radius:50%; border:2.5px solid #ef8b2f;
+                     animation:ripple 1.8s ease-out infinite; }
+  .self-body .ring.r2 { animation-delay:.9s; border-color:#e0564f; }
+  .self-body .core { position:absolute; inset:2px; border-radius:50%;
+                     background:linear-gradient(135deg,#ef8b2f,#e0564f);
+                     border:2px solid #fff; box-shadow:0 0 10px rgba(239,139,47,.95); }
+  @keyframes ripple { 0% { transform:scale(.5); opacity:1; } 100% { transform:scale(2.8); opacity:0; } }
+
+  /* ---- 整体面板收起/重开按钮(仅手机端) ---- */
+  .overall-close { display:none; }
+  .reopen { display:none; position:fixed; right:12px; bottom:12px; z-index:250;
+            border:none; background:#fff; color:#3f6fd8; font-size:13px; font-weight:700;
+            padding:10px 14px; border-radius:22px; box-shadow:0 4px 16px rgba(0,0,0,.18); cursor:pointer; }
+
+  /* ---- 手机端自适应 ---- */
+  @media (max-width: 768px) {
+    .panel { top:8px; left:8px; right:8px; width:auto; padding:10px 12px 8px; }
+    .panel h1 { font-size:15px; }
+    .panel .sub { font-size:10px; margin-top:2px; }
+    .panel .note { display:none; }
+    .chips { margin-top:6px; }
+    .chip { font-size:10px; padding:2px 7px; }
+    .card { top:auto; left:0; right:0; bottom:0; width:auto; max-height:64vh;
+            border-radius:14px 14px 0 0; transform:translateY(110%); }
+    .card.show { transform:translateY(0); }
+    .card-scroll { overflow-y:auto; padding:12px 14px; -webkit-overflow-scrolling:touch; }
+    .card-title { font-size:16px; }
+    .listing-tile { padding:8px 12px; }
+    .lt-val { font-size:22px; }
+    .lt-val .lt-sub { display:block; margin:2px 0 0; }
+    .trend-stats { grid-template-columns:1fr 1fr; }
+    .ts-v { white-space:normal; word-break:break-all; }
+    #chart { height:200px; }
+    .overall-close { display:block; }
+    .reopen { display:block; }
+  }
+
+  .info { width:100%; border-collapse:collapse; margin-top:2px; }
+  .info td { font-size:12px; padding:4px 2px; vertical-align:top; }
+  .info td.k { color:#969cab; width:120px; white-space:nowrap; }
+  .info td.v { color:#333; font-weight:500; }
+  .feature { font-size:12px; color:#444; background:#f7f8fb; border-left:3px solid #3f6fd8;
+             padding:8px 10px; border-radius:0 6px 6px 0; margin-top:10px; line-height:1.6; }
+
+  .sec-title { font-size:13px; font-weight:700; color:#1a1a2e; margin-top:14px; }
+  .sec-sub { font-size:10px; font-weight:400; color:#999; margin-left:6px; }
+  #chart { width:100%; height:230px; margin-top:2px; }
+  .chart-empty { height:80px; display:flex; align-items:center; justify-content:center; color:#b0b3bf; font-size:12px;
+                 background:#f7f8fb; border-radius:8px; margin-top:8px; }
+  .card-foot { font-size:10px; color:#b0b3bf; line-height:1.6; margin-top:10px; border-top:1px dashed #eee; padding-top:8px; }
+  .gap { color:#d24545; }
+
+  /* ---- 加载失败提示 ---- */
+  .err { position:fixed; inset:0; z-index:999; display:none; align-items:center; justify-content:center;
+         background:#f4f5f9; color:#666; font-size:14px; text-align:center; line-height:2; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+
+<div class="panel">
+  <h1>华都项目 · <em>二手监测地图</em></h1>
+  <div class="sub" id="subStats"></div>
+  <div class="chips" id="chips"></div>
+  <div class="note">数据源:《二手对标楼盘.xlsx》删除特定项目 / 月度量价走势 / 在售挂牌量<br>
+  在售挂牌量口径:120-150万总价段 · 点击小区查看单盘详情,点击地图空白处回到整体统计</div>
+</div>
+
+<div class="card" id="card">
+  <div class="card-scroll" id="cardScroll"></div>
+</div>
+
+<button class="reopen" id="reopenBtn">📊 整体统计</button>
+
+<div class="err" id="err">高德地图加载失败<br>请检查网络后刷新页面</div>
+
+<script>
+  window._AMapSecurityConfig = { securityJsCode: "042cd6c07dab9e0a1f78fe505e23989d" };
+</script>
+<script src="https://webapi.amap.com/maps?v=2.0&key=37b06865a18c74420f8b2724427bd812"></script>
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.0/dist/echarts.min.js"></script>
+<script>window.echarts || document.write('<script src="https://unpkg.com/echarts@5.5.0/dist/echarts.min.js"><\/script>');</script>
+<script>
+const DATA = {"导出说明": "数据来源:二手对标楼盘.xlsx(删除特定项目/月度量价走势/在售挂牌量),由 生成地图数据.py 导出", "城市": "成都", "板块列表": ["保和", "八里庄", "动物园", "北湖", "崔家店", "成都理工", "熊猫基地", "龙潭寺"], "月度量价走势未匹配楼盘": ["锦绣花城南区"], "在售挂牌量表头": "120-150万总价挂牌房源量", "projects": [{"name": "绿地悦蓉公馆", "lng": 104.180345, "lat": 30.710861, "板块": "龙潭寺", "客户数量": 113, "客户数量占比": "7%", "建成年代": "2018年", "总户数": 1798, "楼栋数": "74栋", "建筑类型": "高层/超高层", "容积率": 2.9, "绿化率": "30%", "物业费": "2.75", "小区特征": "绿地开发的高层大盘,近桂林地铁站,车位充足", "月度走势": [{"month": "2026-01", "成交量": 4, "套均总价": 153, "成交均价": 13032}, {"month": "2026-02", "成交量": 2, "套均总价": 134, "成交均价": 12525}, {"month": "2026-03", "成交量": 8, "套均总价": 123, "成交均价": 11591}, {"month": "2026-04", "成交量": 5, "套均总价": 126, "成交均价": 12263}, {"month": "2026-05", "成交量": 3, "套均总价": 122, "成交均价": 11165}, {"month": "2026-06", "成交量": 10, "套均总价": 211, "成交均价": 16587}, {"month": "2026-07", "成交量": 4, "套均总价": 126, "成交均价": 10948}, {"month": "2026-08", "成交量": 3, "套均总价": 123, "成交均价": 10950}, {"month": "2026-09", "成交量": 5, "套均总价": 134, "成交均价": 11418}, {"month": "2026-10", "成交量": 6, "套均总价": 168, "成交均价": 13672}, {"month": "2026-11", "成交量": 5, "套均总价": 123, "成交均价": 10926}], "在售挂牌量": 94, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "恒大锦城", "lng": 104.176765, "lat": 30.710643, "板块": "龙潭寺", "客户数量": 101, "客户数量占比": "6%", "建成年代": "2020/2022年分期竣工", "总户数": 1735, "楼栋数": "35栋", "建筑类型": "高层", "容积率": 2.6, "绿化率": "30%", "物业费": "2.65", "小区特征": "恒大系高层大盘,金碧物业,分期交付,房龄新", "月度走势": [{"month": "2026-01", "成交量": 6, "套均总价": 181, "成交均价": 13939}, {"month": "2026-02", "成交量": 5, "套均总价": 129, "成交均价": 11062}, {"month": "2026-03", "成交量": 9, "套均总价": 139, "成交均价": 11954}, {"month": "2026-04", "成交量": 2, "套均总价": 129, "成交均价": 10815}, {"month": "2026-05", "成交量": 6, "套均总价": 134, "成交均价": 11195}, {"month": "2026-06", "成交量": 2, "套均总价": 129, "成交均价": 10721}, {"month": "2026-07", "成交量": 3, "套均总价": 117, "成交均价": 11052}, {"month": "2026-08", "成交量": 6, "套均总价": 120, "成交均价": 10777}, {"month": "2026-09", "成交量": 3, "套均总价": 116, "成交均价": 10014}, {"month": "2026-10", "成交量": 4, "套均总价": 127, "成交均价": 10189}, {"month": "2026-11", "成交量": 3, "套均总价": 124, "成交均价": 10368}], "在售挂牌量": 93, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "首钢蓉城里", "lng": 104.165082, "lat": 30.707986, "板块": "北湖", "客户数量": 78, "客户数量占比": "5%", "建成年代": "2020-2021年竣工", "总户数": 1764, "楼栋数": "13栋", "建筑类型": "高层(主力53-84㎡小户型)", "容积率": 3.8, "绿化率": "30%", "物业费": "2.65", "小区特征": "首钢开发、万科物业的刚需高层社区,小户型居多", "月度走势": [{"month": "2026-01", "成交量": 2, "套均总价": 136, "成交均价": 13426}, {"month": "2026-02", "成交量": 2, "套均总价": 138, "成交均价": 12987}, {"month": "2026-03", "成交量": 5, "套均总价": 147, "成交均价": 13736}, {"month": "2026-04", "成交量": 3, "套均总价": 139, "成交均价": 12707}, {"month": "2026-05", "成交量": 3, "套均总价": 161, "成交均价": 14764}, {"month": "2026-06", "成交量": 2, "套均总价": 128, "成交均价": 12685}, {"month": "2026-07", "成交量": 4, "套均总价": 137, "成交均价": 12252}, {"month": "2026-08", "成交量": 4, "套均总价": 151, "成交均价": 13730}, {"month": "2026-09", "成交量": 3, "套均总价": 132, "成交均价": 13364}, {"month": "2026-10", "成交量": 1, "套均总价": 173, "成交均价": 12688}], "在售挂牌量": 45, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "锦绣花城北区", "lng": 104.172967, "lat": 30.712317, "板块": "龙潭寺", "客户数量": 73, "客户数量占比": "4%", "建成年代": "2019年", "总户数": 1056, "楼栋数": "13栋", "建筑类型": "高层+小高层(8-11F)", "容积率": 2, "绿化率": "30%", "物业费": "2.65", "小区特征": "华宇旭辉合作开发,北区高层+小高层,低容积率", "月度走势": [], "在售挂牌量": null, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": ["月度量价走势表无本盘数据(表中仅有锦绣花城南区)", "在售挂牌量表无本盘数据"]}, {"name": "中国铁建北湖国际城溪檀三期", "lng": 104.157461, "lat": 30.706998, "板块": "北湖", "客户数量": 65, "客户数量占比": "4%", "建成年代": "2018年", "总户数": 1350, "楼栋数": "9栋", "建筑类型": "电梯高层(16-40F)", "容积率": 3.4, "绿化率": "40%", "物业费": "2.50", "小区特征": "北湖国际城三期溪檀,中铁建高层社区,清水交付", "月度走势": [{"month": "2026-01", "成交量": 3, "套均总价": 136, "成交均价": 12896}, {"month": "2026-03", "成交量": 2, "套均总价": 132, "成交均价": 12389}, {"month": "2026-04", "成交量": 4, "套均总价": 153, "成交均价": 12645}, {"month": "2026-06", "成交量": 3, "套均总价": 156, "成交均价": 12686}, {"month": "2026-07", "成交量": 1, "套均总价": 107, "成交均价": 12022}, {"month": "2026-08", "成交量": 4, "套均总价": 148, "成交均价": 13000}, {"month": "2026-09", "成交量": 6, "套均总价": 156, "成交均价": 12801}, {"month": "2026-10", "成交量": 3, "套均总价": 145, "成交均价": 12101}], "在售挂牌量": 50, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "上东壹号丽景苑", "lng": 104.108089, "lat": 30.714683, "板块": "动物园", "客户数量": 45, "客户数量占比": "3%", "建成年代": "2009年", "总户数": 2182, "楼栋数": "9栋", "建筑类型": "板楼高层(18F)", "容积率": 3.9, "绿化率": "33.3%", "物业费": "1.6", "小区特征": "动物园板块2009年建成老社区三期,小户型为主", "月度走势": [{"month": "2026-01", "成交量": 9, "套均总价": 122, "成交均价": 13291}, {"month": "2026-02", "成交量": 4, "套均总价": 125, "成交均价": 12927}, {"month": "2026-03", "成交量": 6, "套均总价": 134, "成交均价": 13396}, {"month": "2026-04", "成交量": 2, "套均总价": 125, "成交均价": 14143}, {"month": "2026-05", "成交量": 2, "套均总价": 113, "成交均价": 13578}, {"month": "2026-06", "成交量": 3, "套均总价": 111, "成交均价": 13190}, {"month": "2026-07", "成交量": 3, "套均总价": 130, "成交均价": 12996}, {"month": "2026-08", "成交量": 4, "套均总价": 115, "成交均价": 12941}, {"month": "2026-09", "成交量": 3, "套均总价": 119, "成交均价": 13421}, {"month": "2026-10", "成交量": 2, "套均总价": 120, "成交均价": 12182}, {"month": "2026-11", "成交量": 2, "套均总价": 154, "成交均价": 12271}], "在售挂牌量": 26, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "浅水半岛三期", "lng": 104.104493, "lat": 30.685643, "板块": "八里庄", "客户数量": 36, "客户数量占比": "2%", "建成年代": "2010年", "总户数": 2796, "楼栋数": "9栋", "建筑类型": "高层围合式", "容积率": 5.5, "绿化率": "48.1%", "物业费": "1.8/3.0", "小区特征": "2010年湖景社区收官期,围合式高层,户型42-352㎡齐全", "月度走势": [{"month": "2026-01", "成交量": 4, "套均总价": 144, "成交均价": 13955}, {"month": "2026-02", "成交量": 3, "套均总价": 124, "成交均价": 15186}, {"month": "2026-03", "成交量": 6, "套均总价": 144, "成交均价": 13207}, {"month": "2026-04", "成交量": 4, "套均总价": 121, "成交均价": 12926}, {"month": "2026-05", "成交量": 4, "套均总价": 130, "成交均价": 12794}, {"month": "2026-06", "成交量": 8, "套均总价": 125, "成交均价": 13332}, {"month": "2026-07", "成交量": 2, "套均总价": 121, "成交均价": 13564}, {"month": "2026-08", "成交量": 8, "套均总价": 124, "成交均价": 12623}, {"month": "2026-09", "成交量": 1, "套均总价": 98, "成交均价": 12073}, {"month": "2026-10", "成交量": 7, "套均总价": 133, "成交均价": 12578}, {"month": "2026-11", "成交量": 2, "套均总价": 114, "成交均价": 12043}], "在售挂牌量": 28, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "红枫岭三期", "lng": 104.12625, "lat": 30.672271, "板块": "八里庄", "客户数量": 36, "客户数量占比": "2%", "建成年代": "2008年", "总户数": 4432, "楼栋数": "10栋", "建筑类型": "高层,板塔结合", "容积率": 3.78, "绿化率": "35%", "物业费": "1.43", "小区特征": "2008年中房系大盘三期,建设路商圈,近龙湖滨江天街,车位配比低", "月度走势": [{"month": "2026-01", "成交量": 9, "套均总价": 127, "成交均价": 13471}, {"month": "2026-02", "成交量": 2, "套均总价": 128, "成交均价": 12754}, {"month": "2026-03", "成交量": 7, "套均总价": 126, "成交均价": 13837}, {"month": "2026-04", "成交量": 3, "套均总价": 112, "成交均价": 12918}, {"month": "2026-05", "成交量": 8, "套均总价": 128, "成交均价": 12978}, {"month": "2026-06", "成交量": 3, "套均总价": 130, "成交均价": 12970}, {"month": "2026-07", "成交量": 5, "套均总价": 116, "成交均价": 12515}, {"month": "2026-08", "成交量": 4, "套均总价": 127, "成交均价": 12672}, {"month": "2026-09", "成交量": 12, "套均总价": 107, "成交均价": 12097}, {"month": "2026-10", "成交量": 15, "套均总价": 118, "成交均价": 13070}, {"month": "2026-11", "成交量": 2, "套均总价": 119, "成交均价": 11910}], "在售挂牌量": 29, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "理工东苑", "lng": 104.151829, "lat": 30.681786, "板块": "成都理工", "客户数量": 36, "客户数量占比": "2%", "建成年代": "2014年", "总户数": 3690, "楼栋数": "40栋", "建筑类型": "高层/塔楼", "容积率": 3, "绿化率": "35%", "物业费": "2.00", "小区特征": "成都理工旁40栋大盘,车位1:1.1充足", "月度走势": [{"month": "2026-01", "成交量": 3, "套均总价": 164, "成交均价": 13497}, {"month": "2026-02", "成交量": 1, "套均总价": 157, "成交均价": 11946}, {"month": "2026-03", "成交量": 4, "套均总价": 163, "成交均价": 13178}, {"month": "2026-04", "成交量": 4, "套均总价": 122, "成交均价": 12439}, {"month": "2026-05", "成交量": 1, "套均总价": 144, "成交均价": 11846}, {"month": "2026-06", "成交量": 2, "套均总价": 113, "成交均价": 12675}, {"month": "2026-07", "成交量": 2, "套均总价": 111, "成交均价": 11517}, {"month": "2026-09", "成交量": 2, "套均总价": 161, "成交均价": 13159}, {"month": "2026-10", "成交量": 5, "套均总价": 161, "成交均价": 13848}, {"month": "2026-11", "成交量": 3, "套均总价": 104, "成交均价": 11153}], "在售挂牌量": 15, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "奥园锦官芳华", "lng": 104.116753, "lat": 30.727148, "板块": "熊猫基地", "客户数量": 36, "客户数量占比": "2%", "建成年代": "2023年", "总户数": 2153, "楼栋数": "未查到", "建筑类型": "小高层(13F,T2/T4)", "容积率": 2.38, "绿化率": "30%", "物业费": "2.98", "小区特征": "2023年次新盘,熊猫基地旁低密带装修小高层,车位1:1.68宽裕", "月度走势": [{"month": "2026-01", "成交量": 1, "套均总价": 154, "成交均价": 12212}, {"month": "2026-02", "成交量": 2, "套均总价": 146, "成交均价": 12347}, {"month": "2026-03", "成交量": 5, "套均总价": 147, "成交均价": 11937}, {"month": "2026-05", "成交量": 3, "套均总价": 143, "成交均价": 12447}, {"month": "2026-08", "成交量": 1, "套均总价": 148, "成交均价": 11740}, {"month": "2026-10", "成交量": 4, "套均总价": 134, "成交均价": 10609}, {"month": "2026-11", "成交量": 3, "套均总价": 130, "成交均价": 10790}], "在售挂牌量": 20, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "金科天籁城", "lng": 104.167838, "lat": 30.698047, "板块": "龙潭寺", "客户数量": 33, "客户数量占比": "2%", "建成年代": "2012年", "总户数": 1844, "楼栋数": "14栋", "建筑类型": "塔楼/板楼/塔板结合", "容积率": 3, "绿化率": "30%", "物业费": "2.10-2.60", "小区特征": "东三环龙潭寺大盘,近龙潭寺地铁站,人车分流园林社区", "月度走势": [{"month": "2026-03", "成交量": 5, "套均总价": 157, "成交均价": 14759}, {"month": "2026-04", "成交量": 2, "套均总价": 115, "成交均价": 13423}, {"month": "2026-05", "成交量": 1, "套均总价": 250, "成交均价": 23254}, {"month": "2026-06", "成交量": 1, "套均总价": 89, "成交均价": 12463}, {"month": "2026-07", "成交量": 4, "套均总价": 114, "成交均价": 12984}, {"month": "2026-08", "成交量": 1, "套均总价": 85, "成交均价": 11874}, {"month": "2026-09", "成交量": 3, "套均总价": 119, "成交均价": 13963}, {"month": "2026-11", "成交量": 1, "套均总价": 153, "成交均价": 12786}], "在售挂牌量": 19, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "成华奥园广场二期", "lng": 104.133508, "lat": 30.656358, "板块": "崔家店", "客户数量": 32, "客户数量占比": "2%", "建成年代": "2018年", "总户数": 2058, "楼栋数": "15栋", "建筑类型": "高层(39F,3梯8户为主)", "容积率": 3.3, "绿化率": "30%", "物业费": "2.60", "小区特征": "90万方地铁上盖综合体住宅二期,近7号线双店路站,92/95㎡套三为主", "月度走势": [{"month": "2026-01", "成交量": 5, "套均总价": 150, "成交均价": 17621}, {"month": "2026-02", "成交量": 1, "套均总价": 169, "成交均价": 18368}, {"month": "2026-03", "成交量": 8, "套均总价": 154, "成交均价": 17857}, {"month": "2026-04", "成交量": 4, "套均总价": 141, "成交均价": 18715}, {"month": "2026-05", "成交量": 10, "套均总价": 151, "成交均价": 17387}, {"month": "2026-06", "成交量": 4, "套均总价": 162, "成交均价": 18397}, {"month": "2026-07", "成交量": 3, "套均总价": 149, "成交均价": 16965}, {"month": "2026-08", "成交量": 6, "套均总价": 148, "成交均价": 17580}, {"month": "2026-09", "成交量": 2, "套均总价": 131, "成交均价": 17499}, {"month": "2026-10", "成交量": 3, "套均总价": 129, "成交均价": 17419}, {"month": "2026-11", "成交量": 2, "套均总价": 142, "成交均价": 17244}], "在售挂牌量": 54, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "交大归谷建设派", "lng": 104.127934, "lat": 30.683739, "板块": "成都理工", "客户数量": 30, "客户数量占比": "2%", "建成年代": "2015年", "总户数": 1941, "楼栋数": "7栋", "建筑类型": "塔楼高层", "容积率": 4.29, "绿化率": "30%", "物业费": "2.4", "小区特征": "二仙桥北路高层社区,近7号线二仙桥站,小户型幻变设计", "月度走势": [{"month": "2026-01", "成交量": 4, "套均总价": 116, "成交均价": 17973}, {"month": "2026-03", "成交量": 5, "套均总价": 135, "成交均价": 19055}, {"month": "2026-04", "成交量": 3, "套均总价": 128, "成交均价": 18610}, {"month": "2026-05", "成交量": 7, "套均总价": 130, "成交均价": 18609}, {"month": "2026-06", "成交量": 4, "套均总价": 119, "成交均价": 18067}, {"month": "2026-07", "成交量": 3, "套均总价": 120, "成交均价": 18284}, {"month": "2026-08", "成交量": 6, "套均总价": 121, "成交均价": 17674}, {"month": "2026-09", "成交量": 4, "套均总价": 120, "成交均价": 17135}, {"month": "2026-10", "成交量": 5, "套均总价": 105, "成交均价": 16309}, {"month": "2026-11", "成交量": 3, "套均总价": 136, "成交均价": 17934}], "在售挂牌量": 25, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "浅水半岛二期", "lng": 104.106217, "lat": 30.683507, "板块": "八里庄", "客户数量": 23, "客户数量占比": "1%", "建成年代": "2008年", "总户数": 1804, "楼栋数": "5栋", "建筑类型": "板塔结合", "容积率": 4.41, "绿化率": "48%", "物业费": "1.5-1.8", "小区特征": "2008年交付湖景社区二期,73-111㎡刚需户型为主,配套成熟", "月度走势": [{"month": "2026-01", "成交量": 3, "套均总价": 140, "成交均价": 13638}, {"month": "2026-02", "成交量": 3, "套均总价": 126, "成交均价": 13541}, {"month": "2026-03", "成交量": 7, "套均总价": 172, "成交均价": 14793}, {"month": "2026-04", "成交量": 1, "套均总价": 112, "成交均价": 12802}, {"month": "2026-05", "成交量": 1, "套均总价": 124, "成交均价": 13938}, {"month": "2026-06", "成交量": 1, "套均总价": 181, "成交均价": 13979}, {"month": "2026-08", "成交量": 4, "套均总价": 145, "成交均价": 12963}, {"month": "2026-09", "成交量": 1, "套均总价": 131, "成交均价": 12162}, {"month": "2026-10", "成交量": 4, "套均总价": 133, "成交均价": 12388}, {"month": "2026-11", "成交量": 3, "套均总价": 147, "成交均价": 11953}], "在售挂牌量": 27, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "成华奥园广场一期", "lng": 104.131074, "lat": 30.6555, "板块": "崔家店", "客户数量": 23, "客户数量占比": "1%", "建成年代": "2016年", "总户数": 918, "楼栋数": "未查到", "建筑类型": "高层", "容积率": 3.5, "绿化率": "30%", "物业费": "2.60", "小区特征": "90万方地铁上盖综合体住宅一期,2016年交付", "月度走势": [{"month": "2026-01", "成交量": 1, "套均总价": 115, "成交均价": 17933}, {"month": "2026-02", "成交量": 1, "套均总价": 159, "成交均价": 17570}, {"month": "2026-03", "成交量": 4, "套均总价": 161, "成交均价": 17903}, {"month": "2026-04", "成交量": 1, "套均总价": 111, "成交均价": 17148}, {"month": "2026-05", "成交量": 2, "套均总价": 141, "成交均价": 16953}, {"month": "2026-07", "成交量": 1, "套均总价": 126, "成交均价": 16492}, {"month": "2026-08", "成交量": 2, "套均总价": 167, "成交均价": 17900}, {"month": "2026-10", "成交量": 3, "套均总价": 126, "成交均价": 16309}], "在售挂牌量": 25, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "优品尚东三期", "lng": 104.144135, "lat": 30.642566, "板块": "保和", "客户数量": 20, "客户数量占比": "1%", "建成年代": "2015-2016年", "总户数": 1085, "楼栋数": "3栋", "建筑类型": "高层/超高层(两梯六户)", "容积率": 2.82, "绿化率": "45%", "物业费": "2.10", "小区特征": "优品尚东大盘三期,近7号线迎晖路站,高绿化率", "月度走势": [{"month": "2026-01", "成交量": 1, "套均总价": 138, "成交均价": 15782}, {"month": "2026-02", "成交量": 1, "套均总价": 133, "成交均价": 14891}, {"month": "2026-03", "成交量": 1, "套均总价": 135, "成交均价": 15216}, {"month": "2026-04", "成交量": 3, "套均总价": 134, "成交均价": 15855}, {"month": "2026-05", "成交量": 1, "套均总价": 124, "成交均价": 14287}, {"month": "2026-06", "成交量": 1, "套均总价": 127, "成交均价": 14209}, {"month": "2026-07", "成交量": 2, "套均总价": 129, "成交均价": 14631}, {"month": "2026-08", "成交量": 2, "套均总价": 145, "成交均价": 14758}, {"month": "2026-10", "成交量": 3, "套均总价": 115, "成交均价": 13548}, {"month": "2026-11", "成交量": 1, "套均总价": 131, "成交均价": 14766}], "在售挂牌量": 37, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "新力琥珀园", "lng": 104.159836, "lat": 30.691087, "板块": "龙潭寺", "客户数量": 20, "客户数量占比": "1%", "建成年代": "2020年", "总户数": 388, "楼栋数": "3栋", "建筑类型": "高层", "容积率": 1.95, "绿化率": "26.2%", "物业费": "0.90", "小区特征": "龙潭寺2020年次新高层盘,人车分流、车位充足,套三改善为主", "月度走势": [{"month": "2026-05", "成交量": 1, "套均总价": 126, "成交均价": 13242}, {"month": "2026-06", "成交量": 1, "套均总价": 151, "成交均价": 12066}, {"month": "2026-08", "成交量": 1, "套均总价": 120, "成交均价": 12618}], "在售挂牌量": 21, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "奥山府九重锦", "lng": 104.168566, "lat": 30.677486, "板块": "龙潭寺", "客户数量": 19, "客户数量占比": "1%", "建成年代": "2021年", "总户数": 805, "楼栋数": "5栋", "建筑类型": "高层/小高层", "容积率": 3, "绿化率": "30%", "物业费": "2.6", "小区特征": "澎湃城内国风住宅组团,2021年次新盘,自带约30万方商业", "月度走势": [{"month": "2026-05", "成交量": 3, "套均总价": 138, "成交均价": 13061}, {"month": "2026-07", "成交量": 2, "套均总价": 150, "成交均价": 12654}, {"month": "2026-09", "成交量": 1, "套均总价": 145, "成交均价": 12231}], "在售挂牌量": 18, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "花样年花郡", "lng": 104.11762, "lat": 30.651899, "板块": "崔家店", "客户数量": 18, "客户数量占比": "1%", "建成年代": "2007-2008年", "总户数": 3321, "楼栋数": "10栋", "建筑类型": "高层(板楼结构为主)", "容积率": 3.52, "绿化率": "32%", "物业费": "0.98", "小区特征": "2007年前后老盘,近万象城和地铁双桥路站,围合式中庭,车位紧张", "月度走势": [{"month": "2026-01", "成交量": 2, "套均总价": 65, "成交均价": 14976}, {"month": "2026-02", "成交量": 1, "套均总价": 178, "成交均价": 17541}, {"month": "2026-03", "成交量": 9, "套均总价": 128, "成交均价": 15478}, {"month": "2026-04", "成交量": 1, "套均总价": 71, "成交均价": 16016}, {"month": "2026-05", "成交量": 1, "套均总价": 202, "成交均价": 16301}, {"month": "2026-06", "成交量": 6, "套均总价": 138, "成交均价": 16046}, {"month": "2026-07", "成交量": 2, "套均总价": 127, "成交均价": 15179}, {"month": "2026-08", "成交量": 4, "套均总价": 134, "成交均价": 14884}, {"month": "2026-09", "成交量": 2, "套均总价": 91, "成交均价": 14776}, {"month": "2026-10", "成交量": 4, "套均总价": 180, "成交均价": 14871}, {"month": "2026-11", "成交量": 3, "套均总价": 62, "成交均价": 14021}], "在售挂牌量": 10, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "华宇旭辉锦绣广场", "lng": 104.163879, "lat": 30.702392, "板块": "龙潭寺", "客户数量": 18, "客户数量占比": "1%", "建成年代": "2019-2020年", "总户数": 3020, "楼栋数": "4栋", "建筑类型": "高层/塔楼(住宅+LOFT+商业)", "容积率": 5.49, "绿化率": "30%", "物业费": "3.5(住宅)/5(商住)", "小区特征": "华宇旭辉联合体城市综合体,超高容积率,8号线龙潭寺站地铁盘", "月度走势": [{"month": "2026-03", "成交量": 1, "套均总价": 133, "成交均价": 11994}, {"month": "2026-04", "成交量": 2, "套均总价": 159, "成交均价": 11566}, {"month": "2026-05", "成交量": 4, "套均总价": 149, "成交均价": 12029}, {"month": "2026-08", "成交量": 1, "套均总价": 137, "成交均价": 12365}, {"month": "2026-09", "成交量": 1, "套均总价": 138, "成交均价": 12432}, {"month": "2026-10", "成交量": 1, "套均总价": 158, "成交均价": 11512}], "在售挂牌量": 3, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "浅水半岛一期", "lng": 104.10515, "lat": 30.683424, "板块": "八里庄", "客户数量": 17, "客户数量占比": "1%", "建成年代": "2008年", "总户数": 1667, "楼栋数": "8栋", "建筑类型": "塔楼/塔板结合", "容积率": 5, "绿化率": "48.1%", "物业费": "1.5", "小区特征": "2008年湖泊水景社区一期(A区),临电子科大附小,房龄约18年", "月度走势": [{"month": "2026-02", "成交量": 1, "套均总价": 109, "成交均价": 12228}, {"month": "2026-03", "成交量": 3, "套均总价": 154, "成交均价": 15043}, {"month": "2026-04", "成交量": 4, "套均总价": 139, "成交均价": 12605}, {"month": "2026-05", "成交量": 4, "套均总价": 128, "成交均价": 13041}, {"month": "2026-06", "成交量": 2, "套均总价": 94, "成交均价": 10757}, {"month": "2026-07", "成交量": 3, "套均总价": 129, "成交均价": 13363}, {"month": "2026-08", "成交量": 4, "套均总价": 117, "成交均价": 12320}, {"month": "2026-09", "成交量": 1, "套均总价": 121, "成交均价": 13616}, {"month": "2026-11", "成交量": 3, "套均总价": 114, "成交均价": 11798}], "在售挂牌量": 12, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "泰博理想城二期", "lng": 104.12571, "lat": 30.685749, "板块": "成都理工", "客户数量": 17, "客户数量占比": "1%", "建成年代": "2018年", "总户数": 781, "楼栋数": "小区整体8栋", "建筑类型": "高层", "容积率": 3, "绿化率": "30%", "物业费": "2.70", "小区特征": "理工大/二仙桥板块2018年高层盘,近7号线二仙桥站,刚需定位", "月度走势": [{"month": "2026-03", "成交量": 4, "套均总价": 112, "成交均价": 16811}, {"month": "2026-04", "成交量": 1, "套均总价": 151, "成交均价": 20064}, {"month": "2026-05", "成交量": 2, "套均总价": 116, "成交均价": 19008}, {"month": "2026-06", "成交量": 2, "套均总价": 143, "成交均价": 19693}, {"month": "2026-07", "成交量": 5, "套均总价": 141, "成交均价": 18853}, {"month": "2026-08", "成交量": 5, "套均总价": 127, "成交均价": 17397}, {"month": "2026-09", "成交量": 2, "套均总价": 116, "成交均价": 17907}, {"month": "2026-10", "成交量": 4, "套均总价": 131, "成交均价": 20154}, {"month": "2026-11", "成交量": 1, "套均总价": 122, "成交均价": 19369}], "在售挂牌量": 11, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": []}, {"name": "瑞安城中汇", "lng": 104.091875, "lat": 30.693113, "板块": "八里庄", "客户数量": 15, "客户数量占比": "1%", "建成年代": "2015年", "总户数": 1989, "楼栋数": "11栋", "建筑类型": "塔楼/板楼/塔板结合", "容积率": 4, "绿化率": "25%", "物业费": "3.2", "小区特征": "瑞安42万方城北综合体,住宅+SOHO+商业,沙河环绕,高密度地铁盘", "月度走势": [{"month": "2026-01", "成交量": 1, "套均总价": 139, "成交均价": 15764}, {"month": "2026-03", "成交量": 9, "套均总价": 130, "成交均价": 14638}, {"month": "2026-04", "成交量": 4, "套均总价": 137, "成交均价": 15481}, {"month": "2026-05", "成交量": 2, "套均总价": 130, "成交均价": 14625}, {"month": "2026-06", "成交量": 7, "套均总价": 127, "成交均价": 14311}, {"month": "2026-07", "成交量": 4, "套均总价": 136, "成交均价": 15382}, {"month": "2026-08", "成交量": 3, "套均总价": 134, "成交均价": 15123}, {"month": "2026-09", "成交量": 4, "套均总价": 129, "成交均价": 14440}, {"month": "2026-10", "成交量": 1, "套均总价": 210, "成交均价": 15912}], "在售挂牌量": null, "挂牌量说明": "120-150万总价挂牌房源量", "数据缺口": ["在售挂牌量表无本盘数据"]}]};
+
+/* ---------- 板块配色 ---------- */
+const BK_COLOR = {
+  "龙潭寺": "#e0564f", "北湖": "#4c7dd0", "八里庄": "#3aa383", "成都理工": "#d99a2b",
+  "崔家店": "#7d6fd0", "动物园": "#2f9e9e", "熊猫基地": "#b569b8", "保和": "#e2814c"
+};
+
+/* ---------- 详情维度线性图标 ---------- */
+const SVGO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">';
+const SVGC = '</svg>';
+const ICONS = {
+  '建成年代': SVGO + '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/>' + SVGC,
+  '总户数': SVGO + '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>' + SVGC,
+  '楼栋数': SVGO + '<rect x="5" y="3" width="14" height="18" rx="1"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/>' + SVGC,
+  '建筑类型': SVGO + '<path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/>' + SVGC,
+  '容积率': SVGO + '<rect x="4" y="4" width="16" height="16" rx="1"/><path d="M4 9.5h16M9.5 4v16"/>' + SVGC,
+  '绿化率': SVGO + '<path d="M4 20c0-9 5-14 16-16 1 11-4 16-13 16"/><path d="M4 20c3-6 7-9 11-11"/>' + SVGC,
+  '物业费(元/㎡·月)': SVGO + '<circle cx="12" cy="12" r="9"/><path d="M8.5 8.5L12 12.2l3.5-3.7M12 12.2V17M9.3 14.5h5.4"/>' + SVGC,
+  '小区特征': SVGO + '<path d="M12 21s-7-5.5-7-11a7 7 0 0 1 14 0c0 5.5-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/>' + SVGC
+};
+
+/* ---------- 地图 ---------- */
+if (!window.AMap) {
+  document.getElementById('err').style.display = 'flex';
+  throw new Error('AMap failed to load');
+}
+const map = new AMap.Map('map', {
+  mapStyle: 'amap://styles/whitesmoke',
+  viewMode: '2D', zoom: 13, center: [104.14, 30.69]
+});
+
+/* ---------- 左上统计 + 板块筛选 ---------- */
+const months = [];
+DATA.projects.forEach(p => p.月度走势.forEach(d => { if (!months.includes(d.month)) months.push(d.month); }));
+months.sort();
+document.getElementById('subStats').textContent =
+  DATA.projects.length + ' 个对标小区 · ' + Object.keys(BK_COLOR).length + ' 个板块 · ' +
+  months[0].replace('-', '.') + ' - ' + months[months.length-1].replace('-', '.') + ' 月度成交';
+
+const chipBox = document.getElementById('chips');
+const chipState = {};  // 板块 -> 是否显示
+const allChip = document.createElement('span');
+allChip.className = 'chip all'; allChip.textContent = '全部';
+allChip.onclick = () => { Object.keys(chipState).forEach(k => chipState[k] = true);
+  syncChips(); markers.forEach(m => m.show()); };
+chipBox.appendChild(allChip);
+Object.keys(BK_COLOR).forEach(bk => {
+  chipState[bk] = true;
+  const c = document.createElement('span');
+  c.className = 'chip'; c.textContent = bk; c.style.background = BK_COLOR[bk];
+  c.onclick = () => {
+    chipState[bk] = !chipState[bk];
+    syncChips();
+    markers.forEach((m, i) => { if (DATA.projects[i].板块 === bk) chipState[bk] ? m.show() : m.hide(); });
+  };
+  chipBox.appendChild(c);
+});
+function syncChips() {
+  [...chipBox.querySelectorAll('.chip')].forEach(el => {
+    const bk = el.textContent;
+    if (bk !== '全部') el.classList.toggle('off', !chipState[bk]);
+  });
+  allChip.textContent = Object.values(chipState).every(v => v) ? '全部' : '部分';
+}
+
+/* ---------- 标记 ---------- */
+const markers = DATA.projects.map(p => {
+  const el = document.createElement('div');
+  el.className = 'mk';
+  const color = BK_COLOR[p.板块] || '#666';
+  el.innerHTML = '<div class="mk-label" style="--c:' + color + ';background:' + color + '">' + p.name + '</div>' +
+                 '<div class="mk-dot" style="background:' + color + '"></div>';
+  const m = new AMap.Marker({ position: [p.lng, p.lat], content: el, anchor: 'bottom-center', zIndex: 60 });
+  el.addEventListener('click', e => { e.stopPropagation(); openCard(p); });
+  return m;
+});
+map.add(markers);
+
+/* 本项目:彩色波纹圆点 */
+const selfEl = document.createElement('div');
+selfEl.className = 'self-dot';
+selfEl.innerHTML = '<div class="self-label">本项目</div>' +
+  '<div class="self-body"><span class="ring"></span><span class="ring r2"></span><span class="core"></span></div>';
+const selfMarker = new AMap.Marker({
+  position: [104.167271, 30.740656], content: selfEl, anchor: 'bottom-center', zIndex: 90
+});
+selfEl.addEventListener('click', e => e.stopPropagation());
+map.add(selfMarker);
+
+/* 默认视野:桌面端固定视角,右侧留给统计面板;手机端标记群居中,收起面板即可全览 */
+if (window.matchMedia('(max-width: 768px)').matches) {
+  map.setZoomAndCenter(11.2, [104.136, 30.66]);
+} else {
+  map.setZoomAndCenter(12.4, [104.205, 30.692]);
+}
+
+/* ---------- 详情卡(点击小区看单盘;未点击时显示整体统计) ---------- */
+const card = document.getElementById('card');
+const scroll = document.getElementById('cardScroll');
+let chart = null;
+
+/* 全量月份轴:固定从2026年1月起逐月,到全表最新月份为止,无成交月份也要占位 */
+const M_RANGE = (() => {
+  let end = '2026-01';
+  DATA.projects.forEach(p => p.月度走势.forEach(d => { if (d.month > end) end = d.month; }));
+  const keys = [];
+  let y = 2026, m = 1;
+  while (true) {
+    const k = y + '-' + String(m).padStart(2, '0');
+    keys.push(k);
+    if (k === end) break;
+    m++; if (m > 12) { m = 1; y++; }
+  }
+  return keys;
+})();
+
+function esc(s) { return s == null ? '-' : String(s); }
+
+function chartOption(months, vols, prices, totals, volMax) {
+  return {
+    grid: { left: 34, right: 96, top: 44, bottom: 24 },
+    tooltip: {
+      trigger: 'axis',
+      textStyle: { fontSize: 12 },
+      formatter: ps => {
+        const unit = { '成交套数': ' 套', '成交均价': ' 元/㎡', '套均总价': ' 万元' };
+        let s = '<b>2026年' + ps[0].axisValue + '</b><br>';
+        ps.forEach(x => { s += x.marker + x.seriesName + ': ' +
+          (x.value == null ? '无成交' : x.value + (unit[x.seriesName] || '')) + '<br>'; });
+        return s;
+      }
+    },
+    legend: { top: 2, left: 2, itemWidth: 14, itemHeight: 7, itemGap: 10,
+              textStyle: { fontSize: 11, color: '#666' } },
+    xAxis: { type: 'category', data: months,
+             axisLabel: { fontSize: 11, color: '#888', interval: 0 },
+             axisTick: { show: false }, axisLine: { lineStyle: { color: '#e4e6ee' } } },
+    yAxis: [
+      { type: 'value', name: '套数', max: volMax || null, nameTextStyle: { fontSize: 10, color: '#999' },
+        axisLabel: { fontSize: 10, color: '#999' }, splitLine: { lineStyle: { color: '#f1f2f6' } } },
+      { type: 'value', name: '元/㎡', position: 'right', nameTextStyle: { fontSize: 10, color: '#999' },
+        axisLabel: { fontSize: 10, color: '#999' },
+        splitLine: { show: false } },
+      { type: 'value', name: '万元', position: 'right', offset: 48, nameTextStyle: { fontSize: 10, color: '#999' },
+        axisLabel: { fontSize: 10, color: '#999' }, splitLine: { show: false } }
+    ],
+    series: [
+      { name: '成交套数', type: 'bar', yAxisIndex: 0, barWidth: '42%',
+        data: vols, itemStyle: { color: '#5b8bd6', borderRadius: [2, 2, 0, 0] },
+        label: { show: true, position: 'insideTop', fontSize: 11,
+                 formatter: x => x.value === 0 ? '' : '{w|' + x.value + '}',
+                 rich: { w: { color: '#fff', fontSize: 11, fontWeight: 600, align: 'center' } } } },
+      { name: '成交均价', type: 'line', yAxisIndex: 1, symbolSize: 6, connectNulls: false,
+        data: prices, itemStyle: { color: '#e0564f' }, lineStyle: { width: 2 },
+        label: { show: true, position: 'top', distance: 7, fontSize: 11, color: '#e0564f',
+                 textBorderColor: '#fff', textBorderWidth: 2,
+                 formatter: x => x.value == null ? '' : x.value } },
+      { name: '套均总价', type: 'line', yAxisIndex: 2, symbolSize: 6, connectNulls: false,
+        data: totals, itemStyle: { color: '#3aa383' },
+        lineStyle: { width: 2, type: 'dashed' },
+        label: { show: true, position: 'top', distance: 7, fontSize: 11, color: '#2e9178',
+                 textBorderColor: '#fff', textBorderWidth: 2 } }
+    ]
+  };
+}
+
+function renderChartBlock(el, months, vols, prices, totals, volMax) {
+  if (chart) { chart.dispose(); chart = null; }
+  if (!window.echarts) {
+    el.outerHTML = '<div class="chart-empty">图表库加载失败,请检查网络后刷新</div>';
+    return;
+  }
+  chart = echarts.init(el);
+  chart.setOption(chartOption(months, vols, prices, totals, volMax));
+}
+
+/* 整体统计面板:未点击项目时的首页视图 */
+function renderOverall() {
+  const acc = M_RANGE.map(() => ({ vol: 0, pw: 0, tw: 0 }));
+  DATA.projects.forEach(p => p.月度走势.forEach(d => {
+    const i = M_RANGE.indexOf(d.month);
+    if (i < 0) return;
+    acc[i].vol += d.成交量;
+    acc[i].pw += d.成交均价 * d.成交量;
+    acc[i].tw += d.套均总价 * d.成交量;
+  }));
+  const months = M_RANGE.map(k => k.slice(5) + '月');
+  const vols = acc.map(a => a.vol);
+  const prices = acc.map(a => a.vol ? Math.round(a.pw / a.vol) : null);
+  const totals = acc.map(a => a.vol ? Math.round(a.tw / a.vol) : null);
+  const totalVol = vols.reduce((s, v) => s + v, 0);
+  const activeM = vols.filter(v => v > 0).length;
+  const ps = prices.filter(v => v != null), tss = totals.filter(v => v != null);
+  const priceRange = ps.length ? Math.min(...ps) + ' ~ ' + Math.max(...ps) : '—';
+  const totalRange = tss.length ? Math.min(...tss) + ' ~ ' + Math.max(...tss) : '—';
+  const covered = DATA.projects.filter(p => p.在售挂牌量 != null).length;
+  const listingSum = DATA.projects.reduce((s, p) => s + (p.在售挂牌量 || 0), 0);
+
+  scroll.innerHTML =
+    '<div class="card-head"><div class="card-title">整体统计' +
+      '<span class="bk-tag" style="background:#4a4a68">' + DATA.projects.length + '个对标小区</span></div>' +
+      '<button class="card-close overall-close" title="收起面板,查看完整地图">×</button></div>' +
+    '<div class="listing-tile"><span class="lt-label">在售挂牌量(120-150万)</span>' +
+      '<span class="lt-val">' + listingSum +
+      '<span class="lt-sub">套 · ' + covered + '/' + DATA.projects.length + '个小区有数据</span></span></div>' +
+    '<div class="mod-title">月度量价走势(全部汇总)<span class="sec-sub">2026年1月起逐月 · 均价总价按成交量加权</span></div>' +
+    '<div class="trend-stats">' +
+    '<div class="ts-item"><div class="ts-k">累计成交</div><div class="ts-v">' + totalVol + ' 套</div></div>' +
+    '<div class="ts-item"><div class="ts-k">有成交月份</div><div class="ts-v">' + activeM + ' / ' + M_RANGE.length + ' 月</div></div>' +
+    '<div class="ts-item"><div class="ts-k">均价区间(元/㎡)</div><div class="ts-v">' + priceRange + '</div></div>' +
+    '<div class="ts-item"><div class="ts-k">总价区间(万元)</div><div class="ts-v">' + totalRange + '</div></div>' +
+    '</div>' +
+    '<div id="chart"></div>' +
+    '<div class="card-foot">点击地图上的小区标记可查看单盘详情 · 数据来源:监测表</div>';
+
+  card.classList.add('show');
+  const oc = card.querySelector('.overall-close');
+  if (oc) oc.onclick = () => card.classList.remove('show');
+  setTimeout(() => {
+    const el = document.getElementById('chart');
+    if (!el) return;
+    renderChartBlock(el, months, vols, prices, totals);
+  }, 60);
+}
+
+function closeCard() { renderOverall(); }
+
+function openCard(p) {
+  const color = BK_COLOR[p.板块] || '#666';
+  const gaps = p.数据缺口 || [];
+  const trendEmpty = !p.月度走势.length;
+
+  const infoRow = (k, v) => '<tr><td class="k">' +
+    (ICONS[k] ? '<span class="ik">' + ICONS[k] + '</span>' : '') + k +
+    '</td><td class="v">' + esc(v) + '</td></tr>';
+  const hushu = (p.总户数 == null || isNaN(p.总户数)) ? esc(p.总户数) : esc(p.总户数) + ' 户';
+
+  /* 月度量价整体统计 */
+  const wd = p.月度走势;
+  const totalVol = wd.reduce((s, d) => s + d.成交量, 0);
+  let priceRange = '—', totalRange = '—';
+  if (wd.length) {
+    const ps = wd.map(d => d.成交均价), tss = wd.map(d => d.套均总价);
+    priceRange = Math.min(...ps) + ' ~ ' + Math.max(...ps);
+    totalRange = Math.min(...tss) + ' ~ ' + Math.max(...tss);
+  }
+  const trendStats =
+    '<div class="trend-stats">' +
+    '<div class="ts-item"><div class="ts-k">累计成交</div><div class="ts-v">' + totalVol + ' 套</div></div>' +
+    '<div class="ts-item"><div class="ts-k">有成交月份</div><div class="ts-v">' + wd.length + ' / ' + M_RANGE.length + ' 月</div></div>' +
+    '<div class="ts-item"><div class="ts-k">均价区间(元/㎡)</div><div class="ts-v">' + priceRange + '</div></div>' +
+    '<div class="ts-item"><div class="ts-k">总价区间(万元)</div><div class="ts-v">' + totalRange + '</div></div>' +
+    '</div>';
+
+  scroll.innerHTML =
+    '<div class="card-head"><div class="card-title">' + p.name +
+      '<span class="bk-tag" style="background:' + color + '">' + p.板块 + '</span></div>' +
+      '<button class="card-close" title="关闭">×</button></div>' +
+    '<div class="listing-tile"><span class="lt-label">在售挂牌量(120-150万)</span>' +
+      '<span class="lt-val">' + (p.在售挂牌量 == null ? '—' : esc(p.在售挂牌量)) +
+      '<span class="lt-sub">' + (p.在售挂牌量 == null ? '表内无本盘' : '套') + '</span></span></div>' +
+    '<div class="mod-title">项目详情</div>' +
+    '<table class="info">' +
+      infoRow('建成年代', p.建成年代) + infoRow('总户数', hushu) +
+      infoRow('楼栋数', p.楼栋数) + infoRow('建筑类型', p.建筑类型) + infoRow('容积率', p.容积率) +
+      infoRow('绿化率', p.绿化率) + infoRow('物业费(元/㎡·月)', p.物业费) +
+      infoRow('小区特征', p.小区特征) +
+    '</table>' +
+    '<div class="mod-title">月度量价走势<span class="sec-sub">2026年1月起逐月 · 无成交月份断线</span></div>' +
+    trendStats +
+    '<div id="chart"></div>' +
+    '<div class="card-foot">' +
+      (gaps.length ? '<span class="gap">※ ' + gaps.join(';') + '</span><br>' : '') +
+      '数据来源:链家/安居客/58爱房/房天下等(小区信息),成交及挂牌数据来自监测表</div>';
+
+  card.querySelector('.card-close').onclick = closeCard;
+  card.classList.add('show');
+  /* 渲染图表(等卡片完成布局) */
+  setTimeout(() => {
+    const el = document.getElementById('chart');
+    if (!el) return;
+    if (chart) { chart.dispose(); chart = null; }
+    if (trendEmpty) {
+      el.outerHTML = '<div class="chart-empty">暂无本盘月度成交数据</div>';
+      return;
+    }
+    const byKey = {};
+    p.月度走势.forEach(d => { byKey[d.month] = d; });
+    renderChartBlock(el,
+      M_RANGE.map(k => k.slice(5) + '月'),
+      M_RANGE.map(k => byKey[k] ? byKey[k].成交量 : 0),
+      M_RANGE.map(k => byKey[k] ? byKey[k].成交均价 : null),
+      M_RANGE.map(k => byKey[k] ? byKey[k].套均总价 : null),
+      15);
+  }, 60);
+}
+
+/* 点击地图空白处回到整体统计 */
+map.on('click', closeCard);
+
+/* 首屏默认呈现整体统计 */
+renderOverall();
+
+/* 手机端:收起面板后可通过浮动按钮重新打开 */
+document.getElementById('reopenBtn').onclick = renderOverall;
+
+/* 比例尺控件异步加载,失败不影响主功能 */
+try {
+  AMap.plugin('AMap.Scale', () => {
+    try { map.addControl(new AMap.Scale({ position: { bottom: '24px', left: '24px' } })); } catch (e) {}
+  });
+} catch (e) {}
+</script>
+</body>
+</html>
