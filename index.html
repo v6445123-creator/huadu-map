@@ -370,8 +370,8 @@ function renderOverall() {
       else huanbi = '<span class="flat">0.0%</span>';
       huanbi += msub('上月' + prev.month.slice(5) + '月 ' + prev.成交均价);
     }
-    const volCell = cur ? cur.成交量 + msub(cur.month.slice(5) + '月') : '<span class="flat">—</span>';
-    const priceCell = cur ? cur.成交均价 + msub(cur.month.slice(5) + '月') : '<span class="flat">—</span>';
+    const volCell = cur ? cur.成交量 : '<span class="flat">—</span>';
+    const priceCell = cur ? cur.成交均价 : '<span class="flat">—</span>';
     return { p, volCell, priceCell, huanbi };
   }).sort((a, b) => {
     const va = parseInt(String(a.volCell), 10) || -1, vb = parseInt(String(b.volCell), 10) || -1;
@@ -386,6 +386,8 @@ function renderOverall() {
     '<td>' + r.huanbi + '</td>' +
     '</tr>').join('');
 
+  const latestMonth = M_RANGE[M_RANGE.length - 1].slice(5) + '月';
+
   scroll.innerHTML =
     '<div class="card-head"><div class="card-title">整体统计' +
       '<span class="bk-tag" style="background:#4a4a68">' + DATA.projects.length + '个对标小区</span></div>' +
@@ -393,9 +395,9 @@ function renderOverall() {
     '<div class="listing-tile"><span class="lt-label">在售挂牌量(120-150万)</span>' +
       '<span class="lt-val">' + listingSum +
       '<span class="lt-sub">套 · ' + covered + '/' + DATA.projects.length + '个小区有数据</span></span></div>' +
-    '<div class="mod-title">最新月成交一览<span class="sec-sub">套数均价为各项目最新成交月份 · 环比=较上一成交月均价 · 按套数排序</span></div>' +
+    '<div class="mod-title">最新月成交一览<span class="sec-sub">环比=较上一成交月均价 · 按套数排序</span></div>' +
     '<table class="mtable">' +
-    '<thead><tr><th>楼盘</th><th>成交套数(套)</th><th>成交均价(元/㎡)</th><th>均价环比</th></tr></thead>' +
+    '<thead><tr><th>楼盘</th><th>' + latestMonth + '成交套数(套)</th><th>' + latestMonth + '成交均价(元/㎡)</th><th>均价环比</th></tr></thead>' +
     '<tbody>' + trs + '</tbody></table>' +
     '<div class="card-foot">点击地图上的小区标记可查看单盘详情 · 数据来源:监测表</div>';
 
