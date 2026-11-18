@@ -83,6 +83,7 @@
   .up { color:#e0564f; font-weight:700; }
   .down { color:#3aa383; font-weight:700; }
   .flat { color:#98a0ad; }
+  .msub { font-size:10px; color:#adb2bd; margin-left:4px; font-weight:400; white-space:nowrap; }
 
   /* ---- 本项目波纹标记 ---- */
   .self-dot { display:flex; flex-direction:column; align-items:center; cursor:pointer; }
@@ -357,6 +358,7 @@ function renderOverall() {
   const listingSum = DATA.projects.reduce((s, p) => s + (p.在售挂牌量 || 0), 0);
 
   /* 各项目最新有成交月份的套数/均价/环比 */
+  const msub = t => '<span class="msub">' + t + '</span>';
   const rows = DATA.projects.map(p => {
     const wd = p.月度走势;
     const cur = wd[wd.length - 1], prev = wd.length > 1 ? wd[wd.length - 2] : null;
@@ -366,16 +368,21 @@ function renderOverall() {
       if (chg > 0.05) huanbi = '<span class="up">↑' + chg.toFixed(1) + '%</span>';
       else if (chg < -0.05) huanbi = '<span class="down">↓' + Math.abs(chg).toFixed(1) + '%</span>';
       else huanbi = '<span class="flat">0.0%</span>';
+      huanbi += msub('上月' + prev.month.slice(5) + '月 ' + prev.成交均价);
     }
-    return { p, cur, huanbi };
-  }).sort((a, b) => (b.cur ? b.cur.成交量 : -1) - (a.cur ? a.cur.成交量 : -1));
+    const volCell = cur ? cur.成交量 + msub(cur.month.slice(5) + '月') : '<span class="flat">—</span>';
+    const priceCell = cur ? cur.成交均价 + msub(cur.month.slice(5) + '月') : '<span class="flat">—</span>';
+    return { p, volCell, priceCell, huanbi };
+  }).sort((a, b) => {
+    const va = parseInt(String(a.volCell), 10) || -1, vb = parseInt(String(b.volCell), 10) || -1;
+    return vb - va;
+  });
 
   const trs = rows.map(r =>
     '<tr>' +
     '<td class="pname">' + r.p.name + '</td>' +
-    '<td>' + (r.cur ? r.cur.month.slice(5) + '月' : '—') + '</td>' +
-    '<td>' + (r.cur ? r.cur.成交量 : '—') + '</td>' +
-    '<td>' + (r.cur ? r.cur.成交均价 : '—') + '</td>' +
+    '<td>' + r.volCell + '</td>' +
+    '<td>' + r.priceCell + '</td>' +
     '<td>' + r.huanbi + '</td>' +
     '</tr>').join('');
 
@@ -386,9 +393,9 @@ function renderOverall() {
     '<div class="listing-tile"><span class="lt-label">在售挂牌量(120-150万)</span>' +
       '<span class="lt-val">' + listingSum +
       '<span class="lt-sub">套 · ' + covered + '/' + DATA.projects.length + '个小区有数据</span></span></div>' +
-    '<div class="mod-title">最新月成交一览<span class="sec-sub">各项目最新成交月份 · 环比=较上一成交月均价 · 按套数排序</span></div>' +
+    '<div class="mod-title">最新月成交一览<span class="sec-sub">套数均价为各项目最新成交月份 · 环比=较上一成交月均价 · 按套数排序</span></div>' +
     '<table class="mtable">' +
-    '<thead><tr><th>楼盘</th><th>月份</th><th>成交套数</th><th>成交均价(元/㎡)</th><th>均价环比</th></tr></thead>' +
+    '<thead><tr><th>楼盘</th><th>成交套数(套)</th><th>成交均价(元/㎡)</th><th>均价环比</th></tr></thead>' +
     '<tbody>' + trs + '</tbody></table>' +
     '<div class="card-foot">点击地图上的小区标记可查看单盘详情 · 数据来源:监测表</div>';
 
