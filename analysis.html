@@ -17,7 +17,7 @@
   .sec-title .txt { font-size:22px; font-weight:700; color:#1a1a2e; }
   .split { display:flex; gap:16px; margin-top:10px; align-items:stretch; }
   .minimap { width:460px; flex:none; border-radius:10px; overflow:hidden; border:1px solid #e8ebf2; background:#f8f9fc; position:relative; }
-  #map1 { height:552px; } #map2 { height:700px; }
+  #map1 { height:770px; } #map2 { height:700px; }
   .right { flex:1; min-width:0; }
   .map-cap { position:absolute; left:10px; top:10px; z-index:170; background:rgba(255,255,255,.92); border-radius:6px;
              font-size:14px; color:#4a5568; padding:5px 10px; box-shadow:0 1px 5px rgba(0,0,0,.12); }
@@ -26,7 +26,7 @@
   .headline b { color:#1a1a2e; }
   .headline .dn { color:#3aa383; font-weight:800; }
   .headline .up { color:#e0564f; font-weight:800; }
-  #chartHb { width:100%; height:452px; }
+  #chartHb { width:100%; height:640px; }
   .fnote { font-size:14px; color:#9aa2b1; margin-top:6px; line-height:1.6; }
   .grid { display:grid; grid-template-columns:repeat(6,1fr); gap:14px; margin-top:8px; }
   .pcard { background:#fafbfd; border:1px solid #eef0f6; border-radius:10px; padding:12px 14px 6px; }
@@ -207,7 +207,7 @@ hb.setOption({
   xAxis: { type: 'value', axisLabel: { fontSize: 13, color: '#999', formatter: v => v + '%' },
            splitLine: { lineStyle: { color: '#eef0f6' } } },
   yAxis: { type: 'category', inverse: true, data: sorted.map(x => x.p.name),
-           axisLabel: { fontSize: 15, color: '#4a5568' }, axisTick: { show: false },
+           axisLabel: { fontSize: 15, color: '#4a5568', interval: 0 }, axisTick: { show: false },
            axisLine: { lineStyle: { color: '#e4e6ee' } } },
   series: [{
     type: 'bar', barWidth: '62%',
