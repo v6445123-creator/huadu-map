@@ -44,6 +44,7 @@
   .sdot.g { width:9px; height:9px; opacity:.45; border-width:1.5px; box-shadow:none; }
   .slabel { font-size:10px; font-weight:700; color:#fff; padding:3px 7px; border-radius:4px; margin-bottom:3px;
             white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.25); }
+  .slabel.sm { font-size:9px; padding:2px 5px; margin-bottom:2px; }
   .self-dot { display:flex; flex-direction:column; align-items:center; }
   .self-label { font-size:10px; font-weight:700; color:#fff; background:linear-gradient(135deg,#ef8b2f,#e0564f);
                 padding:2px 6px; border-radius:3px; margin-bottom:3px; white-space:nowrap; }
@@ -137,11 +138,11 @@ function dotEl(color, tip, gray) {
   el.title = tip;
   return el;
 }
-function chipEl(name, color, tip) {
+function chipEl(name, color, tip, small) {
   const el = document.createElement('div');
   el.className = 'swrap';
-  el.innerHTML = '<div class="slabel" style="background:' + color + '">' + name + '</div>' +
-                 '<span class="sdot" style="background:' + color + '"></span>';
+  el.innerHTML = '<div class="slabel' + (small ? ' sm' : '') + '" style="background:' + color + '">' + name + '</div>' +
+                 '<span class="sdot' + (small ? ' g' : '') + '" style="background:' + color + '"></span>';
   el.title = tip;
   return el;
 }
@@ -174,13 +175,13 @@ function makeMap(containerId, items) {
   return mp;
 }
 
-/* 地图1:全量,圆点按环比红涨绿跌 */
+/* 地图1:全量,名称标签按环比红涨绿跌着色 */
 const m1items = cmp.map(x => {
   const color = x.chg == null ? '#c9ccd4' : (x.chg > 0.05 ? '#e0564f' : (x.chg < -0.05 ? '#3aa383' : '#b0b3bf'));
   const tip = x.chg == null ? x.p.name + '(无成交数据)' :
     x.p.name + ' · 最新月(' + x.cur.month.slice(5) + '月)均价 ' + x.cur.成交均价 +
     ' · 环比 ' + (x.chg > 0 ? '+' : '') + x.chg.toFixed(1) + '%';
-  return { lng: x.p.lng, lat: x.p.lat, el: dotEl(color, tip, x.chg == null), z: 50 };
+  return { lng: x.p.lng, lat: x.p.lat, el: chipEl(x.p.name, color, tip, true), z: 50 };
 });
 m1items.push({ lng: 104.167271, lat: 30.740656, el: selfEl(), z: 90 });
 makeMap('map1', m1items);
@@ -261,7 +262,7 @@ TYPICAL.forEach((name, i) => {
     yAxis: [
       { type: 'value', name: '套', nameTextStyle: { fontSize: 9, color: '#999' },
         axisLabel: { fontSize: 9, color: '#999' }, splitLine: { lineStyle: { color: '#f1f2f6' } } },
-      { type: 'value', scale: true, name: '元/㎡', position: 'right', nameTextStyle: { fontSize: 9, color: '#999' },
+      { type: 'value', name: '元/㎡', position: 'right', nameTextStyle: { fontSize: 9, color: '#999' },
         axisLabel: { fontSize: 9, color: '#999', formatter: v => v >= 10000 ? (v / 1000) + 'k' : v },
         splitLine: { show: false } }
     ],
