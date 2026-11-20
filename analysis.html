@@ -8,43 +8,43 @@
   body { width:1600px; background:#eef1f6; font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif; }
   .wrap { width:1600px; padding:28px 40px 20px; }
   .head { display:flex; align-items:baseline; gap:16px; }
-  .head h1 { font-size:26px; color:#1a1a2e; letter-spacing:1px; }
+  .head h1 { font-size:32px; color:#1a1a2e; letter-spacing:1px; }
   .head h1 em { font-style:normal; color:#3f6fd8; }
-  .head .sub { font-size:13px; color:#7a8399; }
+  .head .sub { font-size:16px; color:#7a8399; }
   .card { background:#fff; border-radius:14px; box-shadow:0 3px 14px rgba(26,26,46,.08); padding:18px 24px; margin-top:16px; }
   .sec-title { display:flex; align-items:center; gap:12px; margin-bottom:4px; }
-  .sec-title .tag { background:#3f6fd8; color:#fff; font-size:13px; font-weight:700; padding:3px 10px; border-radius:4px; }
-  .sec-title .txt { font-size:17px; font-weight:700; color:#1a1a2e; }
+  .sec-title .tag { background:#3f6fd8; color:#fff; font-size:16px; font-weight:700; padding:3px 10px; border-radius:4px; }
+  .sec-title .txt { font-size:22px; font-weight:700; color:#1a1a2e; }
   .split { display:flex; gap:16px; margin-top:10px; align-items:stretch; }
   .minimap { width:460px; flex:none; border-radius:10px; overflow:hidden; border:1px solid #e8ebf2; background:#f8f9fc; position:relative; }
-  #map1 { height:552px; } #map2 { height:664px; }
+  #map1 { height:552px; } #map2 { height:700px; }
   .right { flex:1; min-width:0; }
   .map-cap { position:absolute; left:10px; top:10px; z-index:170; background:rgba(255,255,255,.92); border-radius:6px;
-             font-size:11px; color:#4a5568; padding:4px 9px; box-shadow:0 1px 5px rgba(0,0,0,.12); }
+             font-size:14px; color:#4a5568; padding:5px 10px; box-shadow:0 1px 5px rgba(0,0,0,.12); }
   .map-cap b { color:#1a1a2e; }
-  .headline { font-size:14px; color:#3c4356; margin-top:2px; line-height:1.7; }
+  .headline { font-size:18px; color:#3c4356; margin-top:2px; line-height:1.7; }
   .headline b { color:#1a1a2e; }
   .headline .dn { color:#3aa383; font-weight:800; }
   .headline .up { color:#e0564f; font-weight:800; }
   #chartHb { width:100%; height:452px; }
-  .fnote { font-size:11px; color:#9aa2b1; margin-top:6px; line-height:1.6; }
+  .fnote { font-size:14px; color:#9aa2b1; margin-top:6px; line-height:1.6; }
   .grid { display:grid; grid-template-columns:repeat(6,1fr); gap:14px; margin-top:8px; }
   .pcard { background:#fafbfd; border:1px solid #eef0f6; border-radius:10px; padding:12px 14px 6px; }
   .pcard.w2 { grid-column:span 2; } .pcard.w3 { grid-column:span 3; }
-  .ptitle { font-size:14px; font-weight:700; color:#1a1a2e; }
-  .ptitle .bk { font-size:11px; font-weight:600; color:#fff; border-radius:3px; padding:1px 6px; margin-left:6px; vertical-align:1px; }
-  .pbadge { font-size:11px; color:#8a93a6; margin-top:3px; }
+  .ptitle { font-size:18px; font-weight:700; color:#1a1a2e; }
+  .ptitle .bk { font-size:14px; font-weight:600; color:#fff; border-radius:3px; padding:1px 6px; margin-left:6px; vertical-align:1px; }
+  .pbadge { font-size:14px; color:#8a93a6; margin-top:3px; }
   .pbadge b { color:#e0564f; }
-  .pchart { width:100%; height:236px; }
-  .foot { font-size:11px; color:#9aa2b1; margin:14px 4px 0; line-height:1.7; }
+  .pchart { width:100%; height:264px; }
+  .foot { font-size:14px; color:#9aa2b1; margin:14px 4px 0; line-height:1.7; }
 
   /* ---- 小地图标记 ---- */
   .swrap { display:flex; flex-direction:column; align-items:center; }
   .sdot { width:12px; height:12px; border-radius:50%; border:2px solid #fff; box-shadow:0 1px 4px rgba(0,0,0,.3); }
   .sdot.g { width:9px; height:9px; opacity:.45; border-width:1.5px; box-shadow:none; }
-  .slabel { font-size:10px; font-weight:700; color:#fff; padding:3px 7px; border-radius:4px; margin-bottom:3px;
+  .slabel { font-size:13px; font-weight:700; color:#fff; padding:3px 7px; border-radius:4px; margin-bottom:3px;
             white-space:nowrap; box-shadow:0 1px 4px rgba(0,0,0,.25); }
-  .slabel.sm { font-size:9px; padding:2px 5px; margin-bottom:2px; }
+  .slabel.sm { font-size:12px; padding:2px 5px; margin-bottom:2px; }
   .self-dot { display:flex; flex-direction:column; align-items:center; }
   .self-label { font-size:10px; font-weight:700; color:#fff; background:linear-gradient(135deg,#ef8b2f,#e0564f);
                 padding:2px 6px; border-radius:3px; margin-bottom:3px; white-space:nowrap; }
@@ -200,14 +200,14 @@ makeMap('map2', m2items);
 
 /* ---------- 重点一:整体环比条形图 ---------- */
 const sorted = [...valid].sort((a, b) => b.chg - a.chg);
-const hb = echarts.init(document.getElementById('chartHb'));
+const hb = echarts.init(document.getElementById('chartHb'), null, { devicePixelRatio: 2 });
 hb.setOption({
   animation: false,
-  grid: { left: 210, right: 70, top: 10, bottom: 26 },
-  xAxis: { type: 'value', axisLabel: { fontSize: 10, color: '#999', formatter: v => v + '%' },
+  grid: { left: 250, right: 84, top: 10, bottom: 26 },
+  xAxis: { type: 'value', axisLabel: { fontSize: 13, color: '#999', formatter: v => v + '%' },
            splitLine: { lineStyle: { color: '#eef0f6' } } },
   yAxis: { type: 'category', inverse: true, data: sorted.map(x => x.p.name),
-           axisLabel: { fontSize: 11, color: '#4a5568' }, axisTick: { show: false },
+           axisLabel: { fontSize: 15, color: '#4a5568' }, axisTick: { show: false },
            axisLine: { lineStyle: { color: '#e4e6ee' } } },
   series: [{
     type: 'bar', barWidth: '62%',
@@ -215,7 +215,7 @@ hb.setOption({
       value: Math.round(x.chg * 10) / 10,
       itemStyle: { color: x.chg > 0.05 ? '#e0564f' : (x.chg < -0.05 ? '#3aa383' : '#b0b3bf'), borderRadius: 3 }
     })),
-    label: { show: true, position: 'right', fontSize: 11, fontWeight: 600,
+    label: { show: true, position: 'right', fontSize: 15, fontWeight: 600,
              formatter: x => (x.value > 0 ? '↑' : x.value < 0 ? '↓' : '') + Math.abs(x.value).toFixed(1) + '%',
              color: '#555' }
   }],
@@ -250,18 +250,18 @@ TYPICAL.forEach((name, i) => {
   const byKey = {};
   p.月度走势.forEach(d => byKey[d.month] = d);
   const vols = M_RANGE.map(k => byKey[k] ? byKey[k].成交量 : 0);
-  const prices = M_RANGE.map(k => byKey[k] ? byKey[k].成交均价 : null);
-  const ch = echarts.init(document.getElementById('pc' + i));
+  const priceData = M_RANGE.map((k, idx) => byKey[k] ? { value: byKey[k].成交均价, label: { position: idx % 2 ? 'bottom' : 'top' } } : null);
+  const ch = echarts.init(document.getElementById('pc' + i), null, { devicePixelRatio: 2 });
   ch.setOption({
     animation: false,
-    grid: { left: 40, right: 8, top: 26, bottom: 20 },
-    legend: { top: 0, left: 2, itemWidth: 12, itemHeight: 6, itemGap: 8, textStyle: { fontSize: 10, color: '#666' } },
-    tooltip: { trigger: 'axis', textStyle: { fontSize: 11 } },
-    xAxis: { type: 'category', data: MONTHS, axisLabel: { fontSize: 10, color: '#888', interval: 0 },
+    grid: { left: 48, right: 14, top: 32, bottom: 22 },
+    legend: { top: 0, left: 2, itemWidth: 14, itemHeight: 7, itemGap: 10, textStyle: { fontSize: 13, color: '#666' } },
+    tooltip: { trigger: 'axis', textStyle: { fontSize: 14 } },
+    xAxis: { type: 'category', data: MONTHS, axisLabel: { fontSize: 13, color: '#888', interval: 0 },
              axisTick: { show: false }, axisLine: { lineStyle: { color: '#e4e6ee' } } },
     yAxis: [
-      { type: 'value', name: '套', nameTextStyle: { fontSize: 9, color: '#999' },
-        axisLabel: { fontSize: 9, color: '#999' }, splitLine: { lineStyle: { color: '#f1f2f6' } } },
+      { type: 'value', name: '套', nameTextStyle: { fontSize: 12, color: '#999' },
+        axisLabel: { fontSize: 12, color: '#999' }, splitLine: { lineStyle: { color: '#f1f2f6' } } },
       { type: 'value', name: '元/㎡', position: 'right', nameTextStyle: { fontSize: 9, color: '#999' },
         axisLabel: { fontSize: 9, color: '#999', formatter: v => v >= 10000 ? (v / 1000) + 'k' : v },
         splitLine: { show: false } }
@@ -269,14 +269,14 @@ TYPICAL.forEach((name, i) => {
     series: [
       { name: '成交套数', type: 'bar', yAxisIndex: 0, barWidth: '42%',
         data: vols, itemStyle: { color: '#9db8e0', borderRadius: [2, 2, 0, 0] },
-        label: { show: true, position: 'top', fontSize: 10, color: '#5b8bd6',
+        label: { show: true, position: 'top', fontSize: 14, color: '#5b8bd6',
                  formatter: x => x.value === 0 ? '' : x.value } },
-      { name: '成交均价', type: 'line', yAxisIndex: 1, symbolSize: 5, connectNulls: false,
-        data: prices, itemStyle: { color: '#e0564f' }, lineStyle: { width: 2.5 },
+      { name: '成交均价', type: 'line', yAxisIndex: 1, symbolSize: 6, connectNulls: false,
+        data: priceData, itemStyle: { color: '#e0564f' }, lineStyle: { width: 2.5 },
         markPoint: { symbol: 'circle', symbolSize: 7, label: { show: false },
                      data: [{ type: 'max', name: '年内高点' }],
                      itemStyle: { color: '#e0564f', borderColor: '#fff', borderWidth: 1.5 } },
-        label: { show: true, position: 'top', distance: 6, fontSize: 10, color: '#d24a43',
+        label: { show: true, distance: 6, fontSize: 14, color: '#d24a43',
                  textBorderColor: '#fff', textBorderWidth: 2,
                  formatter: x => x.value == null ? '' : x.value } }
     ]
